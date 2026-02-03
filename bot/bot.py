@@ -47,6 +47,19 @@ def format_staff_user(user: Dict[str, Any]) -> str:
         return str(username)
     return f"[{username}](https://globalstatsviewer.com/users/{user_id})"
 
+def resolve_user_profile_ids(data: Dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    player_info = data.get("player_info", {}) or {}
+    user_id = data.get("user_id") or player_info.get("user_id")
+    profile_id = data.get("profile_id") or player_info.get("profile_id")
+    raw_id = data.get("id") or player_info.get("id")
+    if user_id is None and raw_id is not None:
+        user_id = raw_id
+    if profile_id is None and raw_id is not None:
+        profile_id = raw_id
+    user_id_str = str(user_id) if user_id is not None else None
+    profile_id_str = str(profile_id) if profile_id is not None else None
+    return user_id_str, profile_id_str
+
 
 # /about ~~ Provides information about the Global Stats Viewer project, bot version, sources, and a link to the Discord server
 @tree.command(name="about", description="About Global Stats Viewer")
@@ -140,14 +153,38 @@ async def staff_list(interaction: discord.Interaction):
 
 # /profile ~~ Lets the user view the GSV profile of any GSV, Discord, GD, AREDL, Pointercrate, or Pemonlist ID
 @tree.command(name="profile", description="Display a user profile")
-@app_commands.describe(registered="is user a registered on gsv?", id="Id of user")
-async def profile(interaction: discord.Interaction, registered: bool, id: int):
+@app_commands.describe(
+    id="Id of user",
+    source="Lookup source",
+)
+@app_commands.choices(
+    source=[
+        app_commands.Choice(name="GSV Registered", value="gsv_registered"),
+        app_commands.Choice(name="GSV Unregistered", value="gsv_unregistered"),
+        app_commands.Choice(name="Discord ID", value="discord_id"),
+        app_commands.Choice(name="GD Account ID", value="geometry_dash"),
+        app_commands.Choice(name="AREDL", value="aredl"),
+        app_commands.Choice(name="Pointercrate", value="pointercrate"),
+        app_commands.Choice(name="Pemonlist", value="pemonlist"),
+    ]
+)
+async def profile(
+    interaction: discord.Interaction,
+    id: str,
+    source: app_commands.Choice[str],
+):
     await interaction.response.defer()
+
+    source_value = getattr(source, "value", str(source))
+    registered = source_value == "gsv_registered"
+    unregistered = source_value == "gsv_unregistered"
 
     if registered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
-    else:
+    elif unregistered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+    else:
+        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}?type={source_value}"
 
     try:
         response = requests.get(api_url)
@@ -165,6 +202,8 @@ async def profile(interaction: discord.Interaction, registered: bool, id: int):
     socials = data.get("socials", {})
     country_data = player_info.get("country_data", {})
 
+    resolved_user_id, resolved_profile_id = resolve_user_profile_ids(data)
+
     embed = discord.Embed(
         color=discord.Color(
             int(str(player_info.get("accent_color")).replace("#", "").replace("0x", ""), 16)
@@ -174,18 +213,25 @@ async def profile(interaction: discord.Interaction, registered: bool, id: int):
     )
 
     embed.set_author(name=player_info.get("username", "Unknown"), icon_url=player_info.get("profile_picture", ""))
-    id_label = "User" if registered else "Profile"
-    page_text = "[User Page]" if registered else "[Profile Page]"
+
+    resolved_is_user = resolved_user_id is not None
+    if unregistered:
+        resolved_is_user = False
+    resolved_id = resolved_user_id if resolved_is_user else resolved_profile_id
+
+    id_label = "User" if resolved_is_user else "Profile"
+    page_text = "[User Page]" if resolved_is_user else "[Profile Page]"
     page_url = (
-        f"https://globalstatsviewer.com/users/{id}"
-        if registered
-        else f"https://globalstatsviewer.com/profiles/{id}"
+        f"https://globalstatsviewer.com/users/{resolved_id}"
+        if resolved_is_user
+        else f"https://globalstatsviewer.com/profiles/{resolved_id}"
     )
-    registered_text = f"Registered {emotes['check']}" if registered else ""
+    registered_text = f"Registered {emotes['check']}" if resolved_is_user else ""
+
     header_value = f"{emotes['gsv']} {page_text}({page_url})\n{registered_text}"
 
     embed.add_field(
-        name=f"{id_label} ID: `{id}`",
+        name=f"{id_label} ID: `{resolved_id if resolved_id is not None else id}`",
         value=header_value,
         inline=False,
     )
@@ -261,11 +307,20 @@ async def profile(interaction: discord.Interaction, registered: bool, id: int):
 # /completions ~~ Lets the user view completions of any searched profile, can be toggled to be Classic or Platformer completions
 @tree.command(name="completions", description="Displays a user completions")
 @app_commands.describe(
-    registered="is user a registered on gsv?",
     id="ID of user",
+    source="Lookup source",
     gamemode="Show platformer/classic completions?"
 )
 @app_commands.choices(
+    source=[
+        app_commands.Choice(name="GSV Registered", value="gsv_registered"),
+        app_commands.Choice(name="GSV Unregistered", value="gsv_unregistered"),
+        app_commands.Choice(name="Discord ID", value="discord_id"),
+        app_commands.Choice(name="GD Account ID", value="geometry_dash"),
+        app_commands.Choice(name="AREDL", value="aredl"),
+        app_commands.Choice(name="Pointercrate", value="pointercrate"),
+        app_commands.Choice(name="Pemonlist", value="pemonlist"),
+    ],
     gamemode=[
         app_commands.Choice(name="Classic", value="classic"),
         app_commands.Choice(name="Platformer", value="platformer"),
@@ -273,42 +328,60 @@ async def profile(interaction: discord.Interaction, registered: bool, id: int):
 )
 async def completions(
     interaction: discord.Interaction,
-    registered: bool,
-    id: int,
+    id: str,
+    source: app_commands.Choice[str],
     gamemode: app_commands.Choice[str],
 ):
     await interaction.response.defer()
-    
+
+    source_value = getattr(source, "value", str(source))
+    registered = source_value == "gsv_registered"
+    unregistered = source_value == "gsv_unregistered"
+    lookup_type = None if (registered or unregistered) else source_value
+
     if registered:
         user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
-    else:
+    elif unregistered:
         user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+    else:
+        user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}?type={source_value}"
     
     try:
         user_response = requests.get(user_api_url)
         user_response.raise_for_status()
         user_data_raw = user_response.json()
+        
         player_info = user_data_raw.get("player_info", {})
+
         user_data = {
             "username": player_info.get("username", "Unknown"),
             "pfp": player_info.get("profile_picture", "")
         }
+
+        resolved_user_id, resolved_profile_id = resolve_user_profile_ids(user_data_raw)
+
     except requests.exceptions.RequestException as e:
         print("Error fetching user data:", e)
         await interaction.followup.send("Error fetching user data. Please try again.")
         return
-    
+
+    resolved_is_user = resolved_user_id is not None
+    if unregistered:
+        resolved_is_user = False
+    resolved_id = resolved_user_id if resolved_is_user else resolved_profile_id
     user_url = (
-        f"https://globalstatsviewer.com/profiles/{id}"
-        if registered is False
-        else f"https://globalstatsviewer.com/users/{id}"
+        f"https://globalstatsviewer.com/users/{resolved_id if resolved_id is not None else id}"
+        if resolved_is_user
+        else f"https://globalstatsviewer.com/profiles/{resolved_id if resolved_id is not None else id}"
     )
     
     mode = getattr(gamemode, "value", str(gamemode)).lower()
     if registered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}"
-    else:
+    elif unregistered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilecompletions/{id}?type={mode}"
+    else:
+        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}&completions_type={lookup_type}"
     
     try:
         response = requests.get(api_url)
