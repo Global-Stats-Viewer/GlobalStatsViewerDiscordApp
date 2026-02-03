@@ -12,10 +12,11 @@ class DEV_STATUS(Enum):
     PRODUCTION = 0
     LOCAL_BOT = 1
 
-IS_DEV_ENV = DEV_STATUS.LOCAL_BOT # 0 - For production // 1 - For Local BOT
-IS_DEV_API = DEV_STATUS.PRODUCTION # 0 - For production // 1 - For Local BOT
+ # 0 - For production // 1 - For Local BOT
+IS_DEV_ENV = DEV_STATUS.LOCAL_BOT
+IS_DEV_API = DEV_STATUS.PRODUCTION
 
-DB_FILE = "/home/ubuntu/databases/main/gsv-data.db" 
+BOT_VERSION = "v1.0.0"
 
 # >> TOKEN SETTING
 
@@ -38,6 +39,7 @@ EMOTES: dict[str, dict[str, str]] = {
         "youtube": "<:youtube:1432459558340530297>",
         "twitter": "<:twitter:1432459572509020190>",
         "twitch": "<:twitch:1432459584689410079>",
+        "github": "<:github:1468335018530050048>",
         # GDDP Tier Emotes
         "platinum": "<:Platinum:1434146574921109615>",
         "sapphire": "<:Sapphire:1434146692189524158>",
@@ -67,6 +69,7 @@ EMOTES: dict[str, dict[str, str]] = {
         "youtube": "<:youtube:1437185337385554020>",
         "twitter": "<:twitter:1437185361213259897>",
         "twitch": "<:twitch:1437185348881879171>",
+        "github": "<:github:1468334885881254171>",
         # GDDP Tier Emotes
         "platinum": "<:Platinum:1437185529505513472>",
         "sapphire": "<:Sapphire:1437185565748629757>",

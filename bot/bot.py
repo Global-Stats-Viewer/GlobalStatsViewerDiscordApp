@@ -1,7 +1,7 @@
-# app.py
+# bot.py
 # -- Discord bot
 
-from config import IS_DEV_ENV, DEV_STATUS, LOCAL_TOKEN, EMOTES, PROD_TOKEN, PREFIX
+from config import IS_DEV_ENV, DEV_STATUS, LOCAL_TOKEN, EMOTES, PROD_TOKEN, PREFIX, BOT_VERSION
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 import json
@@ -21,6 +21,17 @@ tree = app_commands.CommandTree(client)
 
 emotes = EMOTES["dev"] if IS_DEV_ENV == DEV_STATUS.LOCAL_BOT else EMOTES["prod"]
 
+staff_flags = {
+    "OWNER": 1,
+    "ADMIN": 2,
+    "DEVELOPER": 4,
+    "MODERATOR": 8,
+    "HELPER": 16,
+}
+
+def has_role(staff_type: int, role: int) -> bool:
+    return (staff_type & role) == role
+
 def gddp_emote_for_tier(tier_name: str) -> str:
     try:
         if not tier_name:
@@ -29,24 +40,36 @@ def gddp_emote_for_tier(tier_name: str) -> str:
     except Exception:
         return ""
 
+def format_staff_user(user: Dict[str, Any]) -> str:
+    username = user.get("username", "Unknown")
+    user_id = user.get("id")
+    if user_id is None:
+        return str(username)
+    return f"[{username}](https://globalstatsviewer.com/users/{user_id})"
 
+
+# /about ~~ Provides information about the Global Stats Viewer project, bot version, sources, and a link to the Discord server
 @tree.command(name="about", description="About Global Stats Viewer")
 async def about(interaction: discord.Interaction):
     await interaction.response.defer()
-    bot_version = "1.0.0"
+
     description = (
         "Global Stats Viewer aims to expand upon the idea of a stats viewer by creating a ranking system that takes all of your accomplishments in rated Geometry Dash levels. "
         "Extreme Demon difficulty rankings are provided by the AREDL. This project is NOT a Demon List; to submit records, you must link your GD account, AREDL profile, Pointercrate, or Pemonlist account. "
         "All completions from those sources will be tracked on the website."
     )
+
     embed = discord.Embed(
         title="Global Stats Viewer",
         url="https://globalstatsviewer.com/",
         description=description,
         color=discord.Color.red(),
     )
-    embed.add_field(name="Bot version", value=f"`{bot_version}`", inline=False)
+
+    embed.add_field(name="Bot version", value=f"`{BOT_VERSION}`", inline=False)
+
     embed.add_field(name="discord.py", value=f"`{discord.__version__}`", inline=False)
+
     embed.add_field(
         name="Sources",
         value=(
@@ -60,73 +83,62 @@ async def about(interaction: discord.Interaction):
         ),
         inline=False,
     )
+
     embed.add_field(
         name="Community",
-        value=f"Have a problem or want to discuss the Global Stats Viewer?\nJoin our Discord:\n{emotes['gsv']} [GSV Discord](https://discord.gg/rhrjDNEEuE)",
+        value=f"Have a problem or want to discuss the Global Stats Viewer?\nJoin our Discord:\n{emotes['gsv']} [GSV Discord](https://discord.gg/rhrjDNEEuE)\nMake a issue on github:\n{emotes['github']} [Bot github](https://github.com/Global-Stats-Viewer/GlobalStatsViewerDiscordApp)",
         inline=False,
     )
+
     await interaction.followup.send(embed=embed)
 
 
+# /ping ~~ Lets you know the time between sending a command and recieving a result
 @tree.command(name="ping", description="Check the bot's latency")
 async def ping(interaction: discord.Interaction):
+
     latency_ms = round(client.latency * 1000) if client.latency is not None else 0
+
     await interaction.response.send_message(f"Pong! {latency_ms}ms 🏓")
 
-STAFF_FLAGS = {
-    "OWNER": 1,
-    "ADMIN": 2,
-    "DEVELOPER": 4,
-    "MODERATOR": 8,
-    "HELPER": 16,
-}
 
-
-def has_role(staff_type: int, role: int) -> bool:
-    return (staff_type & role) == role
-
-
+# /staff-list ~~ Provides the usernames of the staff members on the Global Stats Viewer team
 @tree.command(name="staff-list", description="List staff team members")
 async def staff_list(interaction: discord.Interaction):
     await interaction.response.defer()
-    
+    url = f"https://{PREFIX}.globalstatsviewer.com/api/getstafflist"
     try:
-        response = requests.get(f"https://{PREFIX}.globalstatsviewer.com/api/getstafflist")
-        
-        if response.status_code == 200:
-            staff_data = response.json()
-            
-            if not isinstance(staff_data, list):
-                await interaction.followup.send("Received invalid data from the API.", ephemeral=True)
-                return
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as e:
+        print("Error:", e)
+        await interaction.followup.send("Error fetching staff llist. Please try again later.")
+        return
 
-            owners = [user.get("username", "Unknown") for user in staff_data if has_role(int(user.get("staff_type", 0)), STAFF_FLAGS["OWNER"])]
-            developers = [user.get("username", "Unknown") for user in staff_data if has_role(int(user.get("staff_type", 0)), STAFF_FLAGS["DEVELOPER"])]
-            admins = [user.get("username", "Unknown") for user in staff_data if has_role(int(user.get("staff_type", 0)), STAFF_FLAGS["ADMIN"])]
-            moderators = [user.get("username", "Unknown") for user in staff_data if has_role(int(user.get("staff_type", 0)), STAFF_FLAGS["MODERATOR"])]
-            helpers = [user.get("username", "Unknown") for user in staff_data if has_role(int(user.get("staff_type", 0)), STAFF_FLAGS["HELPER"])]
+    owners = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["OWNER"])]
+    developers = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["DEVELOPER"])]
+    admins = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["ADMIN"])]
+    moderators = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["MODERATOR"])]
+    helpers = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["HELPER"])]
 
-            embed = discord.Embed(title="Global Stats Viewer Staff", color=discord.Color.blue())
-            
-            if owners:
-                embed.add_field(name="Owners", value="\n".join([f"{emotes.get('owner', '')} {u}" for u in owners]), inline=False)
-            if admins:
-                embed.add_field(name="Admins", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in admins]), inline=False)
-            if developers:
-                embed.add_field(name="Developers", value="\n".join([f"{emotes.get('dev', '')} {u}" for u in developers]), inline=False)
-            if moderators:
-                embed.add_field(name="Moderators", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in moderators]), inline=False)
-            if helpers:
-                embed.add_field(name="Helpers", value="\n".join([f"{emotes.get('helper', '')} {u}" for u in helpers]), inline=False)
+    embed = discord.Embed(title="Global Stats Viewer Staff", color=discord.Color.blue())
+    
+    if owners:
+        embed.add_field(name="Owners", value="\n".join([f"{emotes.get('owner', '')} {u}" for u in owners]), inline=False)
+    if admins:
+        embed.add_field(name="Admins", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in admins]), inline=False)
+    if developers:
+        embed.add_field(name="Developers", value="\n".join([f"{emotes.get('dev', '')} {u}" for u in developers]), inline=False)
+    if moderators:
+        embed.add_field(name="Moderators", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in moderators]), inline=False)
+    if helpers:
+        embed.add_field(name="Helpers", value="\n".join([f"{emotes.get('helper', '')} {u}" for u in helpers]), inline=False)
 
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send(f"Error fetching staff list (Code: {response.status_code})", ephemeral=True)
+    await interaction.followup.send(embed=embed)
 
-    except Exception as e:
-        print(f"Error in staff-list: {e}")
-        await interaction.followup.send("An error occurred while fetching the staff list.", ephemeral=True)
 
+# /profile ~~ Lets the user view the GSV profile of any GSV, Discord, GD, AREDL, Pointercrate, or Pemonlist ID
 @tree.command(name="profile", description="Display a user profile")
 @app_commands.describe(registered="is user a registered on gsv?", id="Id of user")
 async def profile(interaction: discord.Interaction, registered: bool, id: int):
@@ -246,6 +258,7 @@ async def profile(interaction: discord.Interaction, registered: bool, id: int):
     await interaction.followup.send(embed=embed)
 
 
+# /completions ~~ Lets the user view completions of any searched profile, can be toggled to be Classic or Platformer completions
 @tree.command(name="completions", description="Displays a user completions")
 @app_commands.describe(
     registered="is user a registered on gsv?",
