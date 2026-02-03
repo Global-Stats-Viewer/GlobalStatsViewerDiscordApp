@@ -65,11 +65,6 @@ async def about(interaction: discord.Interaction):
         value=f"Have a problem or want to discuss the Global Stats Viewer?\nJoin our Discord:\n{emotes['gsv']} [GSV Discord](https://discord.gg/rhrjDNEEuE)",
         inline=False,
     )
-    embed.add_field(
-        name="Source Code",
-        value=f"The source code can be viewed on our [GitHub repository](https://github.com/Global-Stats-Viewer/GlobalStatsViewerDiscordApp)\nContribute if you would like to!",
-        inline=False,
-    )
     await interaction.followup.send(embed=embed)
 
 
