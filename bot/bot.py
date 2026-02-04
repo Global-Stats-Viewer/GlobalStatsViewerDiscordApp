@@ -221,14 +221,28 @@ async def profile(
     unregistered = source_value == "gsv_unregistered"
 
     if source_value == "discord_id":
-        id = id.strip("<@!>")
-        try:
-            int(id)
-        except ValueError:
-            await interaction.followup.send(
-                "Bad format, please send your discord id not username."
-            )
-            return
+        id_str = id.strip()
+        # Try extract numeric id from a mention-like string
+        digits = "".join(ch for ch in id_str if ch.isdigit())
+        if digits:
+            id = digits
+        else:
+            member = None
+            if interaction.guild:
+                member = interaction.guild.get_member_named(id_str)
+                if not member:
+                    try:
+                        members = await interaction.guild.query_members(query=id_str, limit=1)
+                        member = members[0] if members else None
+                    except Exception:
+                        member = None
+            if member:
+                id = str(member.id)
+            else:
+                await interaction.followup.send(
+                    "Bad format, please send a Discord ID or username that is on this server."
+                )
+                return
     elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
         try:
             int(id)
@@ -422,14 +436,27 @@ async def completions(
     unregistered = source_value == "gsv_unregistered"
 
     if source_value == "discord_id":
-        id = id.strip("<@!>")
-        try:
-            int(id)
-        except ValueError:
-            await interaction.followup.send(
-                "Bad format, please send your discord id not username."
-            )
-            return
+        id_str = id.strip()
+        digits = "".join(ch for ch in id_str if ch.isdigit())
+        if digits:
+            id = digits
+        else:
+            member = None
+            if interaction.guild:
+                member = interaction.guild.get_member_named(id_str)
+                if not member:
+                    try:
+                        members = await interaction.guild.query_members(query=id_str, limit=1)
+                        member = members[0] if members else None
+                    except Exception:
+                        member = None
+            if member:
+                id = str(member.id)
+            else:
+                await interaction.followup.send(
+                    "Bad format, please send a Discord ID or username that is on this server."
+                )
+                return
     elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
         try:
             int(id)
