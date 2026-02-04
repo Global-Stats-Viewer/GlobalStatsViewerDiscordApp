@@ -94,10 +94,14 @@ async def about(interaction: discord.Interaction):
 
     embed.add_field(
         name="Community",
-        value=f"Have a problem or want to discuss the Global Stats Viewer?\nJoin our Discord:\n{emotes['gsv']} [GSV Discord](https://discord.gg/rhrjDNEEuE)\nMake a issue on github:\n{emotes['github']} [Bot github](https://github.com/Global-Stats-Viewer/GlobalStatsViewerDiscordApp)",
+        value=f"Have a problem or want to discuss the Global Stats Viewer?\nJoin our Discord:\n{emotes['gsv']} [GSV Discord](https://discord.gg/rhrjDNEEuE)",
         inline=False,
     )
-
+    embed.add_field(
+        name="Source Code",
+        value=f"The source code can be viewed on our\n {emotes['github']} [GitHub repository](https://github.com/Global-Stats-Viewer/GlobalStatsViewerDiscordApp)\nContribute if you would like to!",
+        inline=False,
+    )
     await interaction.followup.send(embed=embed)
 
 
@@ -218,6 +222,13 @@ async def profile(
 
     if source_value == "discord_id":
         id = id.strip("<@!>")
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format, please send your discord id not username."
+            )
+            return
     elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
         try:
             int(id)
@@ -412,6 +423,13 @@ async def completions(
 
     if source_value == "discord_id":
         id = id.strip("<@!>")
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format, please send your discord id not username."
+            )
+            return
     elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
         try:
             int(id)
