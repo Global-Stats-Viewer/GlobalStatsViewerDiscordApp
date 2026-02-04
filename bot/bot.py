@@ -1,11 +1,16 @@
 # bot.py
 # -- Discord bot
 
-from config import IS_DEV_ENV, DEV_STATUS, LOCAL_TOKEN, EMOTES, PROD_TOKEN, PREFIX, BOT_VERSION
-from typing import Any, Dict, List, Optional
-from pathlib import Path
-import json
-import os
+from config import (
+    IS_DEV_ENV,
+    DEV_STATUS,
+    LOCAL_TOKEN,
+    EMOTES,
+    PROD_TOKEN,
+    PREFIX,
+    BOT_VERSION,
+)
+from typing import Any, Dict, List
 
 import discord
 import requests
@@ -29,8 +34,10 @@ staff_flags = {
     "HELPER": 16,
 }
 
+
 def has_role(staff_type: int, role: int) -> bool:
     return (staff_type & role) == role
+
 
 def gddp_emote_for_tier(tier_name: str) -> str:
     try:
@@ -40,25 +47,13 @@ def gddp_emote_for_tier(tier_name: str) -> str:
     except Exception:
         return ""
 
+
 def format_staff_user(user: Dict[str, Any]) -> str:
     username = user.get("username", "Unknown")
     user_id = user.get("id")
     if user_id is None:
         return str(username)
     return f"[{username}](https://globalstatsviewer.com/users/{user_id})"
-
-def resolve_user_profile_ids(data: Dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
-    player_info = data.get("player_info", {}) or {}
-    user_id = data.get("user_id") or player_info.get("user_id")
-    profile_id = data.get("profile_id") or player_info.get("profile_id")
-    raw_id = data.get("id") or player_info.get("id")
-    if user_id is None and raw_id is not None:
-        user_id = raw_id
-    if profile_id is None and raw_id is not None:
-        profile_id = raw_id
-    user_id_str = str(user_id) if user_id is not None else None
-    profile_id_str = str(profile_id) if profile_id is not None else None
-    return user_id_str, profile_id_str
 
 
 # /about ~~ Provides information about the Global Stats Viewer project, bot version, sources, and a link to the Discord server
@@ -126,27 +121,69 @@ async def staff_list(interaction: discord.Interaction):
         data = response.json()
     except requests.exceptions.RequestException as e:
         print("Error:", e)
-        await interaction.followup.send("Error fetching staff llist. Please try again later.")
+        await interaction.followup.send(
+            "Error fetching staff llist. Please try again later."
+        )
         return
 
-    owners = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["OWNER"])]
-    developers = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["DEVELOPER"])]
-    admins = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["ADMIN"])]
-    moderators = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["MODERATOR"])]
-    helpers = [format_staff_user(user) for user in data if has_role(int(user.get("staff_type", 0)), staff_flags["HELPER"])]
+    owners = [
+        format_staff_user(user)
+        for user in data
+        if has_role(int(user.get("staff_type", 0)), staff_flags["OWNER"])
+    ]
+    developers = [
+        format_staff_user(user)
+        for user in data
+        if has_role(int(user.get("staff_type", 0)), staff_flags["DEVELOPER"])
+    ]
+    admins = [
+        format_staff_user(user)
+        for user in data
+        if has_role(int(user.get("staff_type", 0)), staff_flags["ADMIN"])
+    ]
+    moderators = [
+        format_staff_user(user)
+        for user in data
+        if has_role(int(user.get("staff_type", 0)), staff_flags["MODERATOR"])
+    ]
+    helpers = [
+        format_staff_user(user)
+        for user in data
+        if has_role(int(user.get("staff_type", 0)), staff_flags["HELPER"])
+    ]
 
     embed = discord.Embed(title="Global Stats Viewer Staff", color=discord.Color.blue())
-    
+
     if owners:
-        embed.add_field(name="Owners", value="\n".join([f"{emotes.get('owner', '')} {u}" for u in owners]), inline=False)
+        embed.add_field(
+            name="Owners",
+            value="\n".join([f"{emotes.get('owner', '')} {u}" for u in owners]),
+            inline=False,
+        )
     if admins:
-        embed.add_field(name="Admins", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in admins]), inline=False)
+        embed.add_field(
+            name="Admins",
+            value="\n".join([f"{emotes.get('mod', '')} {u}" for u in admins]),
+            inline=False,
+        )
     if developers:
-        embed.add_field(name="Developers", value="\n".join([f"{emotes.get('dev', '')} {u}" for u in developers]), inline=False)
+        embed.add_field(
+            name="Developers",
+            value="\n".join([f"{emotes.get('dev', '')} {u}" for u in developers]),
+            inline=False,
+        )
     if moderators:
-        embed.add_field(name="Moderators", value="\n".join([f"{emotes.get('mod', '')} {u}" for u in moderators]), inline=False)
+        embed.add_field(
+            name="Moderators",
+            value="\n".join([f"{emotes.get('mod', '')} {u}" for u in moderators]),
+            inline=False,
+        )
     if helpers:
-        embed.add_field(name="Helpers", value="\n".join([f"{emotes.get('helper', '')} {u}" for u in helpers]), inline=False)
+        embed.add_field(
+            name="Helpers",
+            value="\n".join([f"{emotes.get('helper', '')} {u}" for u in helpers]),
+            inline=False,
+        )
 
     await interaction.followup.send(embed=embed)
 
@@ -179,10 +216,41 @@ async def profile(
     registered = source_value == "gsv_registered"
     unregistered = source_value == "gsv_unregistered"
 
+    if source_value == "discord_id":
+        id = id.strip("<@!>")
+    elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format, please send your user id not nickname."
+            )
+            return
+    elif source_value == "geometry_dash":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format, please send your geometry dash id not nickname."
+            )
+            return
+    elif source_value == "pointercrate":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format, please send your pointercrate id not nickname."
+            )
+            return
+
     if registered:
-        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
+        api_url = (
+            f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
+        )
     elif unregistered:
-        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+        api_url = (
+            f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+        )
     else:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}?type={source_value}"
 
@@ -190,10 +258,11 @@ async def profile(
         response = requests.get(api_url)
         response.raise_for_status()
         data = response.json()
-
     except requests.exceptions.RequestException as e:
         print("Error:", e)
-        await interaction.followup.send("Error fetching user data. Please try again.")
+        await interaction.followup.send(
+            "Error fetching user data. Please try again later."
+        )
         return
 
     player_info = data.get("player_info", {})
@@ -202,47 +271,50 @@ async def profile(
     socials = data.get("socials", {})
     country_data = player_info.get("country_data", {})
 
-    resolved_user_id, resolved_profile_id = resolve_user_profile_ids(data)
+    raw_id = player_info.get("id")
 
     embed = discord.Embed(
         color=discord.Color(
-            int(str(player_info.get("accent_color")).replace("#", "").replace("0x", ""), 16)
+            int(
+                str(player_info.get("accent_color")).replace("#", "").replace("0x", ""),
+                16,
+            )
         )
         if player_info.get("accent_color")
         else discord.Color.yellow(),
     )
 
-    embed.set_author(name=player_info.get("username", "Unknown"), icon_url=player_info.get("profile_picture", ""))
-
-    resolved_is_user = resolved_user_id is not None
-    if unregistered:
-        resolved_is_user = False
-    resolved_id = resolved_user_id if resolved_is_user else resolved_profile_id
-
-    id_label = "User" if resolved_is_user else "Profile"
-    page_text = "[User Page]" if resolved_is_user else "[Profile Page]"
-    page_url = (
-        f"https://globalstatsviewer.com/users/{resolved_id}"
-        if resolved_is_user
-        else f"https://globalstatsviewer.com/profiles/{resolved_id}"
+    embed.set_author(
+        name=player_info.get("username", "Unknown"),
+        icon_url=player_info.get("profile_picture", ""),
     )
-    registered_text = f"Registered {emotes['check']}" if resolved_is_user else ""
+
+    id_label = "User" if registered else "Profile"
+    page_text = "[User Page]" if registered else "[Profile Page]"
+
+    page_url = (
+        f"https://globalstatsviewer.com/users/{raw_id}"
+        if registered
+        else f"https://globalstatsviewer.com/profiles/{raw_id}"
+    )
+
+    registered_text = f"Registered {emotes['check']}" if registered else ""
 
     header_value = f"{emotes['gsv']} {page_text}({page_url})\n{registered_text}"
 
     embed.add_field(
-        name=f"{id_label} ID: `{resolved_id if resolved_id is not None else id}`",
+        name=f"{id_label} ID: `{raw_id}`",
         value=header_value,
         inline=False,
     )
 
     embed.add_field(name="\n", value="_ _")
-    
+
     classic_points = classic_rank.get("points", 0)
     platformer_points = platformer_rank.get("points", 0)
     classic_global_rank = classic_rank.get("global_rank", "N/A")
     platformer_global_rank = platformer_rank.get("global_rank", "N/A")
-    
+
     embed.add_field(
         name="Ranking:",
         value=f"Classic: `{classic_points}pts` *#{classic_global_rank}*\n"
@@ -251,7 +323,7 @@ async def profile(
     )
 
     embed.add_field(name="\n", value="_ _")
-    
+
     socials_list = []
     if socials.get("youtube"):
         socials_list.append(f"{emotes['youtube']} [YouTube]({socials['youtube']})")
@@ -285,7 +357,7 @@ async def profile(
     country = country_data.get("country", {}) or {}
     subdivision = country_data.get("subdivision", {}) or {}
     secondary_country = country_data.get("secondary_country", {}) or {}
-    
+
     if country.get("name"):
         countries.append(str(country["name"]))
     if subdivision.get("name"):
@@ -309,7 +381,7 @@ async def profile(
 @app_commands.describe(
     id="ID of user",
     source="Lookup source",
-    gamemode="Show platformer/classic completions?"
+    gamemode="Show platformer/classic completions?",
 )
 @app_commands.choices(
     source=[
@@ -324,7 +396,7 @@ async def profile(
     gamemode=[
         app_commands.Choice(name="Classic", value="classic"),
         app_commands.Choice(name="Platformer", value="platformer"),
-    ]
+    ],
 )
 async def completions(
     interaction: discord.Interaction,
@@ -337,76 +409,109 @@ async def completions(
     source_value = getattr(source, "value", str(source))
     registered = source_value == "gsv_registered"
     unregistered = source_value == "gsv_unregistered"
-    lookup_type = None if (registered or unregistered) else source_value
+
+    if source_value == "discord_id":
+        id = id.strip("<@!>")
+    elif source_value == "gsv_registered" or source_value == "gsv_unregistered":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format please send your user id not nickname"
+            )
+            return
+    elif source_value == "geometry_dash":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format please send your geometry dash id not nickname"
+            )
+            return
+    elif source_value == "pointercrate":
+        try:
+            int(id)
+        except ValueError:
+            await interaction.followup.send(
+                "Bad format please send your pointercrate id not nickname"
+            )
+            return
 
     if registered:
-        user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
+        user_api_url = (
+            f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}"
+        )
     elif unregistered:
-        user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+        user_api_url = (
+            f"https://{PREFIX}.globalstatsviewer.com/api/getprofilebasicinfo/{str(id)}"
+        )
     else:
         user_api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getuserbasicinfo/{str(id)}?type={source_value}"
-    
+
     try:
         user_response = requests.get(user_api_url)
         user_response.raise_for_status()
-        user_data_raw = user_response.json()
-        
-        player_info = user_data_raw.get("player_info", {})
-
-        user_data = {
-            "username": player_info.get("username", "Unknown"),
-            "pfp": player_info.get("profile_picture", "")
-        }
-
-        resolved_user_id, resolved_profile_id = resolve_user_profile_ids(user_data_raw)
-
+        data = user_response.json()
     except requests.exceptions.RequestException as e:
         print("Error fetching user data:", e)
         await interaction.followup.send("Error fetching user data. Please try again.")
         return
 
-    resolved_is_user = resolved_user_id is not None
-    if unregistered:
-        resolved_is_user = False
-    resolved_id = resolved_user_id if resolved_is_user else resolved_profile_id
+    player_info = data.get("player_info", {})
+    username = player_info.get("username")
+    pfp = player_info.get("profile_picture")
+    raw_id = player_info.get("id")
+
     user_url = (
-        f"https://globalstatsviewer.com/users/{resolved_id if resolved_id is not None else id}"
-        if resolved_is_user
-        else f"https://globalstatsviewer.com/profiles/{resolved_id if resolved_id is not None else id}"
+        f"https://globalstatsviewer.com/users/{raw_id}"
+        if registered
+        else f"https://globalstatsviewer.com/profiles/{raw_id}"
     )
-    
+
     mode = getattr(gamemode, "value", str(gamemode)).lower()
     if registered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}"
     elif unregistered:
         api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getprofilecompletions/{id}?type={mode}"
     else:
-        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}&completions_type={lookup_type}"
-    
+        api_url = f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}&completions_type={source_value}"
+
     try:
         response = requests.get(api_url)
         response.raise_for_status()
         data = response.json()
-        completions_data = data.get("demonlist", [])
-        user_accent_color = data.get("user_accent_color")
     except requests.exceptions.RequestException as e:
         print("Error:", e)
-        await interaction.followup.send("Error fetching completions data. Please try again.")
+        await interaction.followup.send(
+            "Error fetching completions data. Please try again."
+        )
         return
-    
+
+    completions_data = data.get("demonlist", [])
+
     platformer = mode == "platformer"
     max_pages = (max(len(completions_data), 1) - 1) // 8
     page = 0
+
     def build_embed(page: int) -> discord.Embed:
-        embed_color = discord.Color.green()
-        if user_accent_color:
-            try:
-                embed_color = discord.Color(int(user_accent_color.replace("#", ""), 16))
-            except ValueError:
-                pass
-        
-        embed = discord.Embed(title=f"{user_data['username']}", url=user_url, color=embed_color)
-        embed.set_author(name=user_data["username"], icon_url=user_data["pfp"])
+
+        embed = discord.Embed(
+            title=f"{username}",
+            url=user_url,
+            color=discord.Color(
+                int(
+                    str(data.get("user_accent_color"))
+                    .replace("#", "")
+                    .replace("0x", ""),
+                    16,
+                )
+            )
+            if data.get("user_accent_color")
+            else discord.Color.green(),
+        )
+
+        embed.set_author(name=username, icon_url=pfp)
+
         begin = page * 8
         end = min(begin + 8, len(completions_data))
         completions = []

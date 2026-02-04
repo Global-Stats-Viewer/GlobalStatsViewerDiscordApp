@@ -6,13 +6,15 @@ from dotenv import load_dotenv
 import json
 import os
 
-# -- 
+# -------------------------------------------------------------
+
 
 class DEV_STATUS(Enum):
     PRODUCTION = 0
     LOCAL_BOT = 1
 
- # 0 - For production // 1 - For Local BOT
+
+# 0 - For production // 1 - For Local BOT
 IS_DEV_ENV = DEV_STATUS.LOCAL_BOT
 IS_DEV_API = DEV_STATUS.PRODUCTION
 
