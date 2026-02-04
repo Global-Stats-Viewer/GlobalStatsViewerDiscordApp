@@ -12,7 +12,7 @@ class Ping(commands.Cog):
 
         latency_ms = round(self.bot.latency * 1000) if self.bot.latency is not None else 0
 
-        await interaction.response.send_message(f"no! {latency_ms}ms 🏓")
+        await interaction.response.send_message(f"Pong! {latency_ms}ms 🏓")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Ping(bot))
