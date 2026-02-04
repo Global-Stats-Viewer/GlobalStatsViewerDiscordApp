@@ -1,2 +1,4 @@
 .local
 __pycache__/
+# discord changelog message sent
+changelog.md 

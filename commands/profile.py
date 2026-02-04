@@ -2,7 +2,7 @@ import discord
 from config import (
     PREFIX,
 )
-from typing import List
+from typing import List, Optional
 from discord import app_commands, Interaction
 from discord.ext import commands
 import utils 
@@ -31,14 +31,22 @@ class Profile(commands.Cog):
     async def profile(
         self,
         interaction: discord.Interaction,
-        id: str,
-        source: app_commands.Choice[str],
+        id: Optional[str] = None,
+        source: Optional[app_commands.Choice[str]] = None,
     ):
         await interaction.response.defer()
-
+        auto_added = False
         username = False
 
-        source_value = getattr(source, "value", str(source))
+        if id is None and source is None:
+            auto_added = True
+            source_value = "discord_id"
+            id = str(interaction.user.id)
+        elif id is not None and source is None:
+            source_value = "gsv_registered"
+        else:
+            source_value = getattr(source, "value", str(source))
+
         registered = source_value == "gsv_registered"
         unregistered = source_value == "gsv_unregistered"
 
@@ -113,6 +121,7 @@ class Profile(commands.Cog):
             data = await utils.fetch_json(api_url)
         else:
             data, registered = utils.fetch_both_ways_info(str(id), source_value)
+            unregistered = not registered
 
         if data is None:
             await interaction.followup.send(
@@ -161,6 +170,16 @@ class Profile(commands.Cog):
             value=header_value,
             inline=False,
         )
+
+        if auto_added and unregistered:
+            embed.add_field(
+                name="Claim this profile:",
+                value=(
+                    f"This looks like your Discord profile. "
+                    f"Claim it on globalstatsviewer.com"
+                ),
+                inline=False,
+            )
 
         embed.add_field(name="\n", value="_ _")
 

@@ -2,7 +2,7 @@ import discord
 from config import (
     PREFIX,
 )
-from typing import List
+from typing import List, Optional
 from discord import app_commands, Interaction
 from discord.ext import commands
 from discord.ui import Button, View
@@ -37,15 +37,24 @@ class Completions(commands.Cog):
     async def completions(
         self,
         interaction: discord.Interaction,
-        id: str,
-        source: app_commands.Choice[str],
-        gamemode: app_commands.Choice[str],
+        id: Optional[str] = None,
+        source: Optional[app_commands.Choice[str]] = None,
+        gamemode: app_commands.Choice[str] = None,
     ):
         await interaction.response.defer()
-        mode = getattr(gamemode, "value", str(gamemode)).lower()
-        username = False
 
-        source_value = getattr(source, "value", str(source))
+        mode = getattr(gamemode, "value", str(gamemode)).lower() if gamemode else "classic"
+        
+        username = False
+        if source is None:
+            if id is None:
+                source_value = "discord_id"
+                id = str(interaction.user.id)
+            else:
+                source_value = "gsv_registered"
+        else:
+            source_value = getattr(source, "value", str(source))
+
         registered = source_value == "gsv_registered"
         unregistered = source_value == "gsv_unregistered"
 
@@ -128,7 +137,6 @@ class Completions(commands.Cog):
             return
 
         player_info = data.get("player_info", {})
-        username = player_info.get("username")
         pfp = player_info.get("profile_picture")
         raw_id = player_info.get("id")
 
@@ -138,8 +146,6 @@ class Completions(commands.Cog):
             else f"https://globalstatsviewer.com/profiles/{raw_id}"
         )
 
-        mode = getattr(gamemode, "value", str(gamemode)).lower()
-
 
         if registered and not username:
             api_url = (
@@ -148,12 +154,12 @@ class Completions(commands.Cog):
             data = await utils.fetch_json(api_url)
         elif registered and username:
             api_url = (
-                f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}&completions_type={"username"}"
+                f"https://{PREFIX}.globalstatsviewer.com/api/getusercompletions/{id}?type={mode}&completions_type=username"
             )
             data = await utils.fetch_json(api_url)
         elif unregistered and username:
             api_url = (
-                f"https://{PREFIX}.globalstatsviewer.com/api/getprofilecompletions/{id}?type={mode}&completions_type={"username"}"
+                f"https://{PREFIX}.globalstatsviewer.com/api/getprofilecompletions/{id}?type={mode}&completions_type=username"
             )
             data = await utils.fetch_json(api_url)
         elif unregistered:
@@ -179,7 +185,7 @@ class Completions(commands.Cog):
         def build_embed(page: int) -> discord.Embed:
 
             embed = discord.Embed(
-                title=f"{username}",
+                title=f"{player_info.get('username', 'Unknown')}",
                 url=user_url,
                 color=discord.Color(
                     int(
@@ -193,7 +199,7 @@ class Completions(commands.Cog):
                 else discord.Color.green(),
             )
 
-            embed.set_author(name=username, icon_url=pfp)
+            embed.set_author(name=player_info.get('username', 'Unknown'), icon_url=pfp)
 
             begin = page * 8
             end = min(begin + 8, len(completions_data))

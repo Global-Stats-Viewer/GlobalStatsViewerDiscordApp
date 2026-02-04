@@ -53,7 +53,7 @@ def fetch_both_ways_info(user_id: str, source_value: str):
             return data, False
         except requests.exceptions.RequestException as e:
             print(e)
-            return ""
+            return None, False
 
 
 async def fetch_json(url: str):
@@ -82,4 +82,4 @@ def fetch_both_ways_comp(user_id: str, mode: str, source_value: str):
             return data, False
         except requests.exceptions.RequestException as e:
             print(e)
-            return ""
+            return None, False
