@@ -26,6 +26,7 @@ LOCAL_TOKEN = None
 PROD_TOKEN = None
 PREFIX = None
 
+APP_ID = 1424406048256692446 if IS_DEV_ENV == DEV_STATUS.LOCAL_BOT else 1437182190818431067
 # emotes
 
 EMOTES: dict[str, dict[str, str]] = {
